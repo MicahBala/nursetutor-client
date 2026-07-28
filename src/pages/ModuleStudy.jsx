@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, BookOpen, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+// NEW IMPORTS FOR MARKDOWN
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 export default function ModuleStudy() {
   const { topicId } = useParams();
@@ -11,41 +14,59 @@ export default function ModuleStudy() {
   const [answeredQuestions, setAnsweredQuestions] = useState({});
   const [topics, setTopics] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // NEW STATE: To handle the AI generation wait time gracefully
+  const [isGenerating, setIsGenerating] = useState(false);
 
-  // Fetch topics from MongoDB
+  // Fetch topics logic - Updated to hit the specific study route
+  // Fetch topics logic - Updated to handle API errors safely
   useEffect(() => {
-    const fetchTopics = async () => {
+    const fetchTopicData = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/topics');
-        const data = await response.json();
-        setTopics(data);
+        setIsLoading(true);
+        // 1. Fetch all topics for the sidebar
+        const allTopicsRes = await fetch('http://localhost:5000/api/topics');
+        const allTopicsData = await allTopicsRes.json();
+        setTopics(allTopicsData);
+
+        // 2. Fetch the specific topic to trigger AI generation
+        setIsGenerating(true);
+        const studyRes = await fetch(`http://localhost:5000/api/topics/${topicId}`);
+        const studyData = await studyRes.json();
+        
+        // 3. ONLY update if the backend successfully returned the topic
+        if (studyRes.ok) {
+          setTopics(prevTopics => 
+            prevTopics.map(t => t.topicId === topicId ? studyData : t)
+          );
+        } else {
+          console.error("Backend returned an error:", studyData);
+          alert("Failed to generate AI content. Check your backend terminal for details!");
+        }
+
       } catch (error) {
-        console.error("Error fetching topics:", error);
+        console.error("Error fetching study material:", error);
       } finally {
         setIsLoading(false);
+        setIsGenerating(false);
       }
     };
-    fetchTopics();
-  }, []);
+    fetchTopicData();
+  }, [topicId]);
 
   if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50">Loading content...</div>;
   }
 
-  // 1. Figure out which topics the user has access to (for the sidebar)
   const subscribedTopics = topics.filter(topic => {
     if (topic.isFree) return true;
-    
     const subscription = dbUser?.courseSubscriptions?.find(sub => sub.courseId === topic.topicId);
     if (!subscription) return false;
-
     const purchaseDate = new Date(subscription.purchasedAt);
     const differenceInDays = (new Date().getTime() - purchaseDate.getTime()) / (1000 * 3600 * 24);
-    
-    return differenceInDays <= 30; // Only show in sidebar if active
+    return differenceInDays <= 30; 
   });
 
-  // 2. Find the current topic they are viewing
   const activeTopic = topics.find(t => t.topicId === topicId);
 
   if (!activeTopic) {
@@ -82,7 +103,7 @@ export default function ModuleStudy() {
               <span className="hidden sm:inline">Back to Dashboard</span>
             </button>
           </div>
-          <h1 className="font-bold text-lg text-gray-900 truncate max-w-xs md:max-w-md">{activeTopic.title}</h1>
+          <h1 className="font-bold text-lg text-gray-900 truncate max-w-xs md:max-w-md">{activeTopic.topicName}</h1>
         </div>
       </header>
 
@@ -111,7 +132,7 @@ export default function ModuleStudy() {
                 </div>
                 <div>
                   <p className={`font-semibold text-sm leading-snug ${activeTopic.topicId === topic.topicId ? 'text-blue-900' : 'text-gray-700'}`}>
-                    {topic.title}
+                    {topic.topicName}
                   </p>
                 </div>
               </Link>
@@ -121,99 +142,138 @@ export default function ModuleStudy() {
 
         {/* Main Reading Area */}
         <main className="flex-1 p-4 md:p-10 max-w-3xl pb-24">
-          <div className="animate-in fade-in duration-300">
-            
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-8 leading-tight">
-              {activeTopic.title}
-            </h2>
-
-            {/* The Paragraphs */}
-            <div className="space-y-8 mb-12">
-              {activeTopic.content?.comprehensiveReview?.map((section, idx) => (
-                <div key={idx}>
-                  <h3 className="text-xl font-bold text-gray-800 mb-3">{section.subheading}</h3>
-                  <p className="text-gray-600 text-lg leading-relaxed">{section.paragraphText}</p>
-                </div>
-              ))}
+          
+          {/* THE AI LOADING STATE */}
+          {isGenerating ? (
+            <div className="flex flex-col items-center justify-center h-64 text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Generating Study Guide...</h3>
+              <p className="text-gray-500">Compiling NMCN guidelines and clinical scenarios.</p>
+              <p className="text-xs text-gray-400 mt-2">This usually takes about 5 to 8 seconds.</p>
             </div>
+          ) : (
+            
+            <div className="animate-in fade-in duration-300">
+              
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-8 leading-tight">
+                {activeTopic.topicName}
+              </h2>
 
-            {/* The Exam Catch */}
-            {activeTopic.content?.theCatch && (
-              <div className="bg-amber-50 border-l-4 border-amber-500 rounded-r-xl p-6 md:p-8 mb-16 shadow-sm">
-                <div className="flex items-center gap-3 mb-3 text-amber-800">
-                  <AlertTriangle size={24} />
-                  <h3 className="font-bold text-lg">Exam Catch</h3>
-                </div>
-                <p className="text-amber-900 text-lg font-medium italic leading-relaxed">
-                  "{activeTopic.content.theCatch}"
-                </p>
+              {/* NEW: Markdown Rendering Block */}
+              <div className="prose prose-blue prose-lg max-w-none mb-16">
+                <div className="max-w-none mb-16">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    h1: ({node, ...props}) => (
+                      <h1 className="text-3xl font-extrabold text-gray-900 mt-8 mb-4" {...props} />
+                    ),
+                    h2: ({node, ...props}) => (
+                      <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4 border-b border-gray-200 pb-2" {...props} />
+                    ),
+                    h3: ({node, ...props}) => (
+                      <h3 className="text-xl font-semibold text-gray-800 mt-6 mb-3" {...props} />
+                    ),
+                    p: ({node, ...props}) => (
+                      <p className="text-gray-700 text-lg leading-relaxed mb-6" {...props} />
+                    ),
+                    ul: ({node, ...props}) => (
+                      <ul className="list-disc list-outside pl-6 space-y-3 mb-6 text-gray-700 text-lg leading-relaxed" {...props} />
+                    ),
+                    ol: ({node, ...props}) => (
+                      <ol className="list-decimal list-outside pl-6 space-y-3 mb-6 text-gray-700 text-lg leading-relaxed" {...props} />
+                    ),
+                    li: ({node, ...props}) => (
+                      <li className="pl-1" {...props} />
+                    ),
+                    strong: ({node, ...props}) => (
+                      <strong className="font-bold text-gray-900" {...props} />
+                    ),
+                  }}
+                >
+                  {activeTopic.articleContent || "No content generated yet."}
+                </ReactMarkdown>
               </div>
-            )}
+              </div>
 
-            {/* Check Your Understanding (Mini-Quiz) */}
-            {activeTopic.questions && activeTopic.questions.length > 0 && (
-              <div className="border-t border-gray-200 pt-12">
-                <h3 className="text-2xl font-bold text-gray-900 mb-8">Check Your Understanding</h3>
-                
-                <div className="space-y-10">
-                  {activeTopic.questions.map((q, index) => {
-                    // Because MongoDB generated _id for questions, we use q._id
-                    const selectedAnswer = answeredQuestions[q._id];
-                    const isAnswered = !!selectedAnswer;
+              {/* Check Your Understanding (Mini-Quiz) */}
+              {activeTopic.questions && activeTopic.questions.length > 0 && (
+                <div className="border-t border-gray-200 pt-12">
+                  <h3 className="text-2xl font-bold text-gray-900 mb-8">Check Your Understanding</h3>
+                  
+                  <div className="space-y-10">
+                    {activeTopic.questions.map((q, index) => {
+                      const selectedAnswer = answeredQuestions[q._id];
+                      const isAnswered = !!selectedAnswer;
 
-                    return (
-                      <div key={q._id} className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                        <p className="text-lg font-bold text-gray-900 mb-6">
-                          <span className="text-blue-600 mr-2">{index + 1}.</span> 
-                          {q.questionText}
-                        </p>
-                        
-                        <div className="space-y-3">
-                          {q.options.map((option, optIdx) => {
-                            const isThisOptionSelected = selectedAnswer === option;
-                            const isThisOptionCorrect = option === q.correctAnswer;
-                            
-                            let optionStyle = "border-gray-200 hover:border-blue-300 hover:bg-blue-50 cursor-pointer";
-                            if (isAnswered) {
-                              if (isThisOptionCorrect) {
-                                optionStyle = "border-green-500 bg-green-50 text-green-900 font-medium";
-                              } else if (isThisOptionSelected) {
-                                optionStyle = "border-red-500 bg-red-50 text-red-900 font-medium";
-                              } else {
-                                optionStyle = "border-gray-100 text-gray-400 cursor-default";
+                      // Map the API schema to an array for easy rendering
+                      const optionsList = [q.optionA, q.optionB, q.optionC, q.optionD];
+                      
+                      // Identify correct option string based on 'correctAnswer' letter (A, B, C, D)
+                      const getCorrectOptionText = () => {
+                          if (q.correctAnswer === 'A') return q.optionA;
+                          if (q.correctAnswer === 'B') return q.optionB;
+                          if (q.correctAnswer === 'C') return q.optionC;
+                          if (q.correctAnswer === 'D') return q.optionD;
+                          return q.correctAnswer; // Fallback
+                      };
+                      
+                      const correctOptionText = getCorrectOptionText();
+
+                      return (
+                        <div key={q._id || index} className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                          <p className="text-lg font-bold text-gray-900 mb-6">
+                            <span className="text-blue-600 mr-2">{index + 1}.</span> 
+                            {q.questionText}
+                          </p>
+                          
+                          <div className="space-y-3">
+                            {optionsList.map((option, optIdx) => {
+                              const isThisOptionSelected = selectedAnswer === option;
+                              const isThisOptionCorrect = option === correctOptionText;
+                              
+                              let optionStyle = "border-gray-200 hover:border-blue-300 hover:bg-blue-50 cursor-pointer";
+                              if (isAnswered) {
+                                if (isThisOptionCorrect) {
+                                  optionStyle = "border-green-500 bg-green-50 text-green-900 font-medium";
+                                } else if (isThisOptionSelected) {
+                                  optionStyle = "border-red-500 bg-red-50 text-red-900 font-medium";
+                                } else {
+                                  optionStyle = "border-gray-100 text-gray-400 cursor-default";
+                                }
                               }
-                            }
 
-                            return (
-                              <div 
-                                key={optIdx}
-                                onClick={() => handleOptionClick(q._id, option)}
-                                className={`p-4 border-2 rounded-xl transition-all flex items-center justify-between ${optionStyle}`}
-                              >
-                                <span>{option}</span>
-                                {isAnswered && isThisOptionCorrect && <CheckCircle2 className="text-green-500 flex-shrink-0 ml-2" size={20} />}
-                                {isAnswered && isThisOptionSelected && !isThisOptionCorrect && <XCircle className="text-red-500 flex-shrink-0 ml-2" size={20} />}
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        {/* Rationale Dropdown */}
-                        {isAnswered && (
-                          <div className={`mt-6 p-5 rounded-xl border animate-in slide-in-from-top-2 duration-300 ${
-                            selectedAnswer === q.correctAnswer ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'
-                          }`}>
-                            <p className="font-bold mb-1 text-sm uppercase tracking-wider text-gray-700">Rationale</p>
-                            <p className="text-gray-800 leading-relaxed">{q.rationale}</p>
+                              return (
+                                <div 
+                                  key={optIdx}
+                                  onClick={() => handleOptionClick(q._id, option)}
+                                  className={`p-4 border-2 rounded-xl transition-all flex items-center justify-between ${optionStyle}`}
+                                >
+                                  <span>{option}</span>
+                                  {isAnswered && isThisOptionCorrect && <CheckCircle2 className="text-green-500 flex-shrink-0 ml-2" size={20} />}
+                                  {isAnswered && isThisOptionSelected && !isThisOptionCorrect && <XCircle className="text-red-500 flex-shrink-0 ml-2" size={20} />}
+                                </div>
+                              );
+                            })}
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
+
+                          {/* Rationale Dropdown */}
+                          {isAnswered && (
+                            <div className={`mt-6 p-5 rounded-xl border animate-in slide-in-from-top-2 duration-300 ${
+                              selectedAnswer === correctOptionText ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'
+                            }`}>
+                              <p className="font-bold mb-1 text-sm uppercase tracking-wider text-gray-700">Rationale</p>
+                              <p className="text-gray-800 leading-relaxed">{q.rationale}</p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </main>
       </div>
     </div>

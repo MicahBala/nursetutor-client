@@ -12,7 +12,7 @@ export default function Dashboard() {
   const [topics, setTopics] = useState([]);
   const [isLoadingTopics, setIsLoadingTopics] = useState(true);
 
-  // NEW: Tab and Progress states
+  // Tab and Progress states
   const [activeTab, setActiveTab] = useState('library'); // 'library' | 'progress'
   const [examHistory, setExamHistory] = useState([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -32,7 +32,7 @@ export default function Dashboard() {
     fetchTopics();
   }, []);
 
-  // NEW: Fetch exam history when user switches to 'progress' tab
+  // Fetch exam history when user switches to 'progress' tab
   useEffect(() => {
     if (activeTab === 'progress' && examHistory.length === 0 && currentUser) {
       const fetchHistory = async () => {
@@ -66,31 +66,23 @@ export default function Dashboard() {
   const isTopicUnlocked = (topic) => {
     if (topic.isFree) return true;
     
-    // Find the MOST RECENT subscription for this topic 
-    // (in case they bought it, let it expire, and bought it again)
     const subscriptions = dbUser.courseSubscriptions?.filter(sub => sub.courseId === topic.topicId) || [];
-    
-    if (subscriptions.length === 0) return false; // Never bought it
+    if (subscriptions.length === 0) return false;
 
-    // Get the latest purchase
     const latestSub = subscriptions[subscriptions.length - 1];
-
-    // Check if the current time is BEFORE the expiration time
     const now = new Date();
     const expiry = new Date(latestSub.expiresAt);
 
-    return now < expiry; // Returns true if it is still active, false if locked!
+    return now < expiry; 
   };
 
-
-// Count how many paid topics are currently active using our helper function
   const activeSubscriptionsCount = topics.filter(topic => !topic.isFree && isTopicUnlocked(topic)).length;
 
-  // Filter logic applied to our fetched topics
+  // UPDATED: Now filtering using topic.topicName
   const filteredTopics = topics.filter(topic => {
     const query = searchQuery.toLowerCase();
-    const titleMatch = topic.title.toLowerCase().includes(query);
-    const tagMatch = topic.tags.some(tag => tag.toLowerCase().includes(query));
+    const titleMatch = (topic.topicName || "").toLowerCase().includes(query);
+    const tagMatch = topic.tags?.some(tag => tag.toLowerCase().includes(query));
     return titleMatch || tagMatch;
   });
 
@@ -184,94 +176,98 @@ export default function Dashboard() {
           <>
             {/* Search Bar Section */}
             <div className="mb-8 relative">
-          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-gray-400" />
-          </div>
-          <input
-            type="text"
-            className="block w-full pl-11 pr-4 py-4 bg-white border border-gray-200 rounded-2xl shadow-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            placeholder="Search for a topic..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <Search className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                className="block w-full pl-11 pr-4 py-4 bg-white border border-gray-200 rounded-2xl shadow-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                placeholder="Search for a topic..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
 
-        {/* Dynamic Topic Library Section */}
-        {isLoadingTopics ? (
-          <div className="text-center py-12 text-gray-500">Loading topics from database...</div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredTopics.length > 0 ? (
-              filteredTopics.map((topic) => {
-                const unlocked = isTopicUnlocked(topic); 
-                
-                return (
-                  <div key={topic.topicId} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow">
-                    <div className="p-6 flex-1">
-                      
-                      <div className="flex justify-between items-start mb-4">
-                        <div className={`p-2 rounded-lg ${unlocked ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
-                          {unlocked ? <Unlock size={20} /> : <Lock size={20} />}
-                        </div>
-                        {topic.isFree ? (
-                          <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded-full uppercase tracking-wide">Free</span>
-                        ) : unlocked ? (
-                          <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-full uppercase tracking-wide">Unlocked</span>
-                        ) : null}
-                      </div>
-                      
-                      <h3 className="font-bold text-lg text-gray-900 mb-2">{topic.title}</h3>
-                      <p className="text-gray-500 text-sm line-clamp-2 mb-4">{topic.description}</p>
-                      
-                      <div className="flex flex-wrap gap-2 mt-auto">
-                        {topic.tags.map((tag, idx) => (
-                          <span key={idx} className="inline-flex items-center gap-1 bg-gray-100 text-gray-600 text-xs font-medium px-2.5 py-1 rounded-md">
-                            <Tag size={12} />
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-
-                    </div>
-                    
-                    <div className="p-4 bg-gray-50 border-t border-gray-100 mt-auto">
-                      {unlocked ? (
-                        <button 
-                          onClick={() => navigate(`/study/${topic.topicId}`)}
-                          className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg transition-colors cursor-pointer"
-                        >
-                          Start Studying
-                        </button>
-                      ) : (
-                        <button 
-                          onClick={() => navigate('/subscription', { 
-                            state: { 
-                              topicId: topic.topicId, 
-                              title: topic.title, 
-                              price: topic.price,
-                              type: 'topic' // Tells the page we are buying a topic, not exam credits
-                            } 
-                          })}
-                          className="w-full bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold py-2 rounded-lg transition-colors cursor-pointer"
-                        >
-                          Unlock for ₦{topic.price}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
+            {/* Dynamic Topic Library Section */}
+            {isLoadingTopics ? (
+              <div className="text-center py-12 text-gray-500">Loading topics from database...</div>
             ) : (
-              <div className="col-span-full py-12 text-center text-gray-500 bg-white rounded-2xl border border-gray-200 border-dashed">
-                <p className="text-lg font-medium text-gray-900 mb-1">No topics found</p>
-                <p>We couldn't find any topics matching "{searchQuery}"</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredTopics.length > 0 ? (
+                  filteredTopics.map((topic) => {
+                    const unlocked = isTopicUnlocked(topic); 
+                    
+                    return (
+                      <div key={topic.topicId} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow">
+                        <div className="p-6 flex-1">
+                          
+                          <div className="flex justify-between items-start mb-4">
+                            <div className={`p-2 rounded-lg ${unlocked ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
+                              {unlocked ? <Unlock size={20} /> : <Lock size={20} />}
+                            </div>
+                            {topic.isFree ? (
+                              <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded-full uppercase tracking-wide">Free</span>
+                            ) : unlocked ? (
+                              <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-full uppercase tracking-wide">Unlocked</span>
+                            ) : null}
+                          </div>
+                          
+                          {/* UPDATED: Using topicName instead of title */}
+                          <h3 className="font-bold text-lg text-gray-900 mb-2">{topic.topicName}</h3>
+                          
+                          {/* UPDATED: Using courseName instead of description */}
+                          <p className="text-gray-500 text-sm mb-4 font-medium uppercase tracking-wider">{topic.courseName}</p>
+                          
+                          <div className="flex flex-wrap gap-2 mt-auto">
+                            {topic.tags?.map((tag, idx) => (
+                              <span key={idx} className="inline-flex items-center gap-1 bg-gray-100 text-gray-600 text-xs font-medium px-2.5 py-1 rounded-md">
+                                <Tag size={12} />
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+
+                        </div>
+                        
+                        <div className="p-4 bg-gray-50 border-t border-gray-100 mt-auto">
+                          {unlocked ? (
+                            <button 
+                              onClick={() => navigate(`/study/${topic.topicId}`)}
+                              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg transition-colors cursor-pointer"
+                            >
+                              Start Studying
+                            </button>
+                          ) : (
+                            <button 
+                              onClick={() => navigate('/subscription', { 
+                                state: { 
+                                  topicId: topic.topicId, 
+                                  title: topic.topicName, // UPDATED HERE TOO
+                                  price: topic.price,
+                                  type: 'topic'
+                                } 
+                              })}
+                              className="w-full bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold py-2 rounded-lg transition-colors cursor-pointer"
+                            >
+                              Unlock for ₦{topic.price}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="col-span-full py-12 text-center text-gray-500 bg-white rounded-2xl border border-gray-200 border-dashed">
+                    <p className="text-lg font-medium text-gray-900 mb-1">No topics found</p>
+                    <p>We couldn't find any topics matching "{searchQuery}"</p>
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        )}
           </>
         ) : (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            {/* Exam History Section Remains Unchanged */}
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-gray-900">Your Past Exams</h2>
               <span className="bg-blue-100 text-blue-700 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
@@ -305,7 +301,6 @@ export default function Dashboard() {
                       {exam.totalCorrect} out of {exam.totalQuestions} correct
                     </p>
                     
-                    {/* Tiny breakdown of topics covered */}
                     <div className="mt-4 pt-4 border-t border-gray-100">
                       <p className="text-xs text-gray-400 uppercase font-bold mb-2 tracking-wider">Topics Covered</p>
                       <div className="flex flex-wrap gap-2">
