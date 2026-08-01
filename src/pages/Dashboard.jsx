@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Shield, CreditCard, Lock, Unlock, Search, Tag, TrendingUp, Calendar, Award } from 'lucide-react';
+import { BookOpen, Shield, CreditCard, Lock, Unlock, Search, Tag, TrendingUp, Calendar, Award, CheckCircle2, Play } from 'lucide-react';
 
 export default function Dashboard() {
   const { currentUser, dbUser, logout } = useAuth(); 
@@ -12,11 +12,15 @@ export default function Dashboard() {
   const [topics, setTopics] = useState([]);
   const [isLoadingTopics, setIsLoadingTopics] = useState(true);
 
+  // State to hold study module progress
+  const [userProgress, setUserProgress] = useState([]);
+
   // Tab and Progress states
   const [activeTab, setActiveTab] = useState('library'); // 'library' | 'progress'
   const [examHistory, setExamHistory] = useState([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
+  // Fetch all topics
   useEffect(() => {
     const fetchTopics = async () => {
       try {
@@ -32,15 +36,36 @@ export default function Dashboard() {
     fetchTopics();
   }, []);
 
+  // Fetch topic study progress when currentUser loads
+  useEffect(() => {
+    const fetchProgress = async () => {
+      const currentUserId = currentUser?.uid || dbUser?.firebaseUid;
+      if (!currentUserId) return;
+
+      try {
+        const res = await fetch(`http://localhost:5000/api/progress/${currentUserId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setUserProgress(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch user progress:", error);
+      }
+    };
+    
+    fetchProgress();
+  }, [currentUser, dbUser]);
+
   // Fetch exam history when user switches to 'progress' tab
   useEffect(() => {
-    if (activeTab === 'progress' && examHistory.length === 0 && currentUser) {
+    if (activeTab === 'progress' && currentUser) {
       const fetchHistory = async () => {
         setIsLoadingHistory(true);
         try {
           const res = await fetch(`http://localhost:5000/api/results/${currentUser.uid}`);
           const data = await res.json();
-          setExamHistory(data);
+          // Sort exams to show the most recent ones first
+          setExamHistory(data.sort((a, b) => new Date(b.completedAt || b.createdAt) - new Date(a.completedAt || a.createdAt)));
         } catch (error) {
           console.error("Failed to fetch exam history", error);
         } finally {
@@ -49,7 +74,7 @@ export default function Dashboard() {
       };
       fetchHistory();
     }
-  }, [activeTab, currentUser, examHistory.length]);
+  }, [activeTab, currentUser]);
 
   const handleLogout = async () => {
     try {
@@ -76,9 +101,6 @@ export default function Dashboard() {
     return now < expiry; 
   };
 
-  const activeSubscriptionsCount = topics.filter(topic => !topic.isFree && isTopicUnlocked(topic)).length;
-
-  // UPDATED: Now filtering using topic.topicName
   const filteredTopics = topics.filter(topic => {
     const query = searchQuery.toLowerCase();
     const titleMatch = (topic.topicName || "").toLowerCase().includes(query);
@@ -111,7 +133,7 @@ export default function Dashboard() {
             onClick={() => navigate('/quiz-setup')}
             className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 cursor-pointer hover:shadow-md hover:border-blue-200 transition-all"
           >
-            <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+            <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
               <Shield size={24} />
             </div>
             <div>
@@ -123,16 +145,35 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
-            <div className="w-12 h-12 bg-green-50 text-green-600 rounded-xl flex items-center justify-center">
-              <BookOpen size={24} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 font-medium">Unlocked Topics</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {activeSubscriptionsCount}
+          {/* Overall Progress Card */}
+          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-center">
+            <div className="flex justify-between items-center mb-2">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-green-50 text-green-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <TrendingUp size={16} />
+                </div>
+                <p className="text-sm text-gray-500 font-medium">Course Progress</p>
+              </div>
+              <p className="text-sm font-bold text-gray-900">
+                {userProgress.length} / {topics.filter(t => isTopicUnlocked(t)).length}
               </p>
             </div>
+            
+            <div className="w-full bg-gray-100 rounded-full h-2.5 mt-2">
+              <div 
+                className="bg-green-500 h-2.5 rounded-full transition-all duration-1000 ease-out" 
+                style={{ 
+                  width: `${topics.filter(t => isTopicUnlocked(t)).length > 0 
+                    ? Math.round((userProgress.length / topics.filter(t => isTopicUnlocked(t)).length) * 100) 
+                    : 0}%` 
+                }}
+              ></div>
+            </div>
+            <p className="text-xs text-gray-400 mt-2 text-right">
+              {topics.filter(t => isTopicUnlocked(t)).length > 0 
+                ? Math.round((userProgress.length / topics.filter(t => isTopicUnlocked(t)).length) * 100) 
+                : 0}% Completed
+            </p>
           </div>
 
           <div onClick={() => navigate('/subscription')} className="bg-blue-600 hover:bg-blue-700 cursor-pointer p-6 rounded-2xl shadow-md text-white flex items-center justify-between transition-colors">
@@ -140,7 +181,7 @@ export default function Dashboard() {
               <p className="text-blue-100 font-medium text-sm mb-1">Exam approaching?</p>
               <p className="text-lg font-bold">Get Exam Pass</p>
             </div>
-            <CreditCard size={28} className="opacity-80" />
+            <CreditCard size={28} className="opacity-80 flex-shrink-0" />
           </div>
         </div>
 
@@ -174,7 +215,6 @@ export default function Dashboard() {
 
         {activeTab === 'library' ? (
           <>
-            {/* Search Bar Section */}
             <div className="mb-8 relative">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                 <Search className="h-5 w-5 text-gray-400" />
@@ -188,7 +228,6 @@ export default function Dashboard() {
               />
             </div>
 
-            {/* Dynamic Topic Library Section */}
             {isLoadingTopics ? (
               <div className="text-center py-12 text-gray-500">Loading topics from database...</div>
             ) : (
@@ -196,26 +235,35 @@ export default function Dashboard() {
                 {filteredTopics.length > 0 ? (
                   filteredTopics.map((topic) => {
                     const unlocked = isTopicUnlocked(topic); 
+                    const progressRecord = userProgress.find(p => p.topicId === topic.topicId);
+                    const isCompleted = !!progressRecord;
                     
                     return (
-                      <div key={topic.topicId} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow">
+                      <div key={topic.topicId} className={`bg-white rounded-2xl border ${isCompleted ? 'border-green-300' : 'border-gray-200'} shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow`}>
                         <div className="p-6 flex-1">
                           
                           <div className="flex justify-between items-start mb-4">
-                            <div className={`p-2 rounded-lg ${unlocked ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
+                            <div className={`p-2 rounded-lg ${isCompleted ? 'bg-green-100 text-green-600' : unlocked ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>
                               {unlocked ? <Unlock size={20} /> : <Lock size={20} />}
                             </div>
-                            {topic.isFree ? (
-                              <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded-full uppercase tracking-wide">Free</span>
-                            ) : unlocked ? (
-                              <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-full uppercase tracking-wide">Unlocked</span>
-                            ) : null}
+                            
+                            <div className="flex gap-2 items-center">
+                              {isCompleted && (
+                                <span className="flex items-center gap-1 bg-green-100 text-green-700 text-xs font-bold px-2.5 py-1 rounded-full tracking-wide">
+                                  <CheckCircle2 size={14} />
+                                  {progressRecord.highestScore}/{progressRecord.totalQuestions}
+                                </span>
+                              )}
+                              {!isCompleted && topic.isFree && (
+                                <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded-full uppercase tracking-wide">Free</span>
+                              )}
+                              {!isCompleted && !topic.isFree && unlocked && (
+                                <span className="bg-gray-100 text-gray-600 text-xs font-bold px-2 py-1 rounded-full uppercase tracking-wide">Unlocked</span>
+                              )}
+                            </div>
                           </div>
                           
-                          {/* UPDATED: Using topicName instead of title */}
                           <h3 className="font-bold text-lg text-gray-900 mb-2">{topic.topicName}</h3>
-                          
-                          {/* UPDATED: Using courseName instead of description */}
                           <p className="text-gray-500 text-sm mb-4 font-medium uppercase tracking-wider">{topic.courseName}</p>
                           
                           <div className="flex flex-wrap gap-2 mt-auto">
@@ -226,23 +274,24 @@ export default function Dashboard() {
                               </span>
                             ))}
                           </div>
-
                         </div>
                         
-                        <div className="p-4 bg-gray-50 border-t border-gray-100 mt-auto">
+                        <div className={`p-4 border-t mt-auto ${isCompleted ? 'bg-green-50 border-green-100' : 'bg-gray-50 border-gray-100'}`}>
                           {unlocked ? (
                             <button 
                               onClick={() => navigate(`/study/${topic.topicId}`)}
-                              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg transition-colors cursor-pointer"
+                              className={`w-full font-semibold py-2 rounded-lg transition-colors cursor-pointer ${
+                                isCompleted ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'
+                              }`}
                             >
-                              Start Studying
+                              {isCompleted ? 'Review Module' : 'Start Studying'}
                             </button>
                           ) : (
                             <button 
                               onClick={() => navigate('/subscription', { 
                                 state: { 
                                   topicId: topic.topicId, 
-                                  title: topic.topicName, // UPDATED HERE TOO
+                                  title: topic.topicName,
                                   price: topic.price,
                                   type: 'topic'
                                 } 
@@ -267,11 +316,10 @@ export default function Dashboard() {
           </>
         ) : (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            {/* Exam History Section Remains Unchanged */}
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Your Past Exams</h2>
+              <h2 className="text-2xl font-bold text-gray-900">Your Exam History</h2>
               <span className="bg-blue-100 text-blue-700 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
-                {examHistory.length} Exams Completed
+                {examHistory.length} Exams Logged
               </span>
             </div>
             
@@ -279,40 +327,73 @@ export default function Dashboard() {
               <div className="text-center py-12 text-gray-500">Loading your history...</div>
             ) : examHistory.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {examHistory.map((exam) => (
-                  <div key={exam._id} className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="flex items-center gap-2 text-gray-500 text-sm">
-                        <Calendar size={16} />
-                        {new Date(exam.takenAt).toLocaleDateString(undefined, {
-                          year: 'numeric', month: 'short', day: 'numeric',
-                          hour: '2-digit', minute: '2-digit'
-                        })}
+                {examHistory.map((exam) => {
+                  const isCompleted = exam.status === 'completed';
+                  const targetRoute = isCompleted ? `/exam-results/${exam._id}` : `/exam/${exam._id}`;
+                  const scorePercentage = exam.totalQuestions ? Math.round((exam.overallScore / exam.totalQuestions) * 100) : 0;
+                  const dateDisplay = exam.completedAt 
+                    ? new Date(exam.completedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) 
+                    : exam.createdAt 
+                      ? new Date(exam.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+                      : 'Unknown Date';
+
+                  return (
+                    <div 
+                      key={exam._id} 
+                      onClick={() => navigate(targetRoute)}
+                      className="bg-white flex flex-col p-6 rounded-2xl border border-gray-200 shadow-sm cursor-pointer hover:shadow-md hover:border-blue-400 hover:bg-blue-50/30 transition-all h-full group"
+                    >
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="flex items-center gap-2 text-gray-500 text-sm font-medium">
+                          <Calendar size={16} />
+                          {dateDisplay}
+                        </div>
+                        
+                        {isCompleted ? (
+                          <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide flex items-center gap-1 ${
+                            scorePercentage >= 50 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                          }`}>
+                            <Award size={14} />
+                            {scorePercentage}% Score
+                          </div>
+                        ) : (
+                          <div className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide flex items-center gap-1 bg-amber-100 text-amber-700">
+                            <Play size={14} fill="currentColor" />
+                            In Progress
+                          </div>
+                        )}
                       </div>
-                      <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide flex items-center gap-1 ${
-                        exam.overallScore >= 70 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                      }`}>
-                        <Award size={14} />
-                        {exam.overallScore}% Score
+                      
+                      <h3 className="font-bold text-gray-900 mb-1">{exam.examTitle || "Mock Exam"}</h3>
+                      {isCompleted ? (
+                        <p className="text-gray-500 text-sm mb-4">
+                          {exam.overallScore} out of {exam.totalQuestions} answered correctly
+                        </p>
+                      ) : (
+                        <p className="text-amber-600 text-sm mb-4 font-medium">
+                          You paused this exam. Click to resume.
+                        </p>
+                      )}
+                      
+                      <div className="mt-auto pt-4 border-t border-gray-100">
+                        <p className="text-xs text-gray-400 uppercase font-bold mb-2 tracking-wider">Topics Covered</p>
+                        <div className="flex flex-wrap gap-2">
+                          {exam.topicBreakdown?.map((t, i) => (
+                            <span key={i} className="bg-gray-50 text-gray-600 border border-gray-200 text-xs px-2.5 py-1 rounded-md font-medium">
+                              {t.topicName}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Clickable Action Footer */}
+                      <div className="mt-5 pt-4 border-t border-gray-100 text-sm font-bold text-blue-600 flex items-center justify-between group-hover:text-blue-700">
+                        <span>{isCompleted ? 'Review Questions' : 'Resume Exam Now'}</span>
+                        <span className="transform group-hover:translate-x-1 transition-transform">➔</span>
                       </div>
                     </div>
-                    
-                    <p className="font-semibold text-gray-900 mb-2">
-                      {exam.totalCorrect} out of {exam.totalQuestions} correct
-                    </p>
-                    
-                    <div className="mt-4 pt-4 border-t border-gray-100">
-                      <p className="text-xs text-gray-400 uppercase font-bold mb-2 tracking-wider">Topics Covered</p>
-                      <div className="flex flex-wrap gap-2">
-                        {exam.topicBreakdown.map((t, i) => (
-                          <span key={i} className="bg-gray-50 text-gray-600 border border-gray-100 text-xs px-2 py-1 rounded-md">
-                            {t.topicTitle} <span className="font-semibold">({t.percentage}%)</span>
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="py-12 text-center text-gray-500 bg-white rounded-2xl border border-gray-200 border-dashed">

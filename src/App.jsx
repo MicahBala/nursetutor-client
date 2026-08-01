@@ -1,15 +1,16 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext'; 
 
-// Import all your pages
 import Landing from './pages/Landing';
 import Subscription from './pages/Subscription';
 import Dashboard from './pages/Dashboard';
-import ModuleStudy from './pages/ModuleStudy'; // <-- MAKE SURE THIS IS IMPORTED
+import ModuleStudy from './pages/ModuleStudy';
 import QuizSetup from './pages/QuizSetup';
-// (If you haven't created ActiveQuiz or QuizResults yet, you can comment them out for now)
 import ActiveQuiz from './pages/ActiveQuiz';
 import QuizResults from './pages/QuizResults';
+import MockExam from './pages/MockExam';
+import AdminDashboard from './pages/AdminDashboard';
+import ExamResults from './pages/ExamResults';
 
 function App() {
   return (
@@ -22,14 +23,16 @@ function App() {
             <Route path="/subscription" element={<Subscription />} />
             <Route path="/dashboard" element={<Dashboard />} />
             
-            {/* THIS IS THE ROUTE WE WERE MISSING */}
-            {/* The ":topicId" is a dynamic variable that catches "foundation-101" */}
             <Route path="/study/:topicId" element={<ModuleStudy />} />
             
             <Route path="/quiz-setup" element={<QuizSetup />} />
-            
             <Route path="/quiz-active" element={<ActiveQuiz />} />
             <Route path="/quiz-results" element={<QuizResults />} />
+
+            <Route path="/exam-results/:examId" element={<ExamResults />} />
+
+            <Route path="/exam/:examId" element={<MockExam />} />
+            <Route path="/admin" element={<AdminDashboard />} />
           </Routes>
         </div>
       </AuthProvider>
