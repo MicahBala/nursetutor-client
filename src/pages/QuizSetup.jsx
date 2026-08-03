@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Shield, CheckSquare, Square, PlayCircle, AlertCircle, ArrowLeft, Clock } from 'lucide-react';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export default function QuizSetup() {
   const { dbUser, currentUser } = useAuth();
@@ -22,7 +23,7 @@ export default function QuizSetup() {
       try {
         // 1. Check if user has an active exam FIRST
         if (currentUserId) {
-          const activeRes = await fetch(`http://localhost:5000/api/mock-exams/active/${currentUserId}`);
+          const activeRes = await fetch(`${API_URL}/api/mock-exams/active/${currentUserId}`);
           const activeData = await activeRes.json();
           if (activeData.activeExam) {
             setActiveExam(activeData.activeExam);
@@ -32,7 +33,7 @@ export default function QuizSetup() {
         }
 
         // 2. If no active exam, fetch topics
-        const response = await fetch('http://localhost:5000/api/topics');
+        const response = await fetch(`${API_URL}/api/topics`);
         const data = await response.json();
         setAvailableTopics(data);
       } catch (error) {
@@ -71,7 +72,7 @@ export default function QuizSetup() {
     setErrorMessage('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/mock-exams/start', {
+      const response = await fetch(`${API_URL}/api/mock-exams/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

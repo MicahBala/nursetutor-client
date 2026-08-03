@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Clock, ChevronLeft, ChevronRight, Send, Pause, Play } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export default function MockExam() {
   const { examId } = useParams();
@@ -21,7 +22,7 @@ export default function MockExam() {
   useEffect(() => {
     const fetchExam = async () => {
       try {
-        const res = await fetch(`http://localhost:5000/api/mock-exams/${examId}`);
+        const res = await fetch(`${API_URL}/api/mock-exams/${examId}`);
         const data = await res.json();
         
         if (data.status === 'completed') {
@@ -87,7 +88,7 @@ export default function MockExam() {
 
   const saveProgressSilently = async (newTime, questionId, letter) => {
     try {
-      await fetch(`http://localhost:5000/api/mock-exams/${examId}/auto-save`, {
+      await fetch(`${API_URL}/api/mock-exams/${examId}/auto-save`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -124,7 +125,7 @@ export default function MockExam() {
     if (!window.confirm("Are you sure you want to submit your exam? You cannot change your answers after this.")) return;
     setIsSubmitting(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/mock-exams/${examId}/submit`, { method: 'POST' });
+      const res = await fetch(`${API_URL}/api/mock-exams/${examId}/submit`, { method: 'POST' });
       if (res.ok) navigate(`/exam-results/${examId}`);
     } catch (error) {
       setIsSubmitting(false);

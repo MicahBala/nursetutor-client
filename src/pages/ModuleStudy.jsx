@@ -4,6 +4,7 @@ import { ArrowLeft, BookOpen, CheckCircle2, XCircle, Award, RotateCcw } from 'lu
 import { useAuth } from '../contexts/AuthContext';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export default function ModuleStudy() {
   const { topicId } = useParams();
@@ -26,7 +27,7 @@ export default function ModuleStudy() {
     const fetchTopicData = async () => {
       try {
         setIsLoading(true);
-        const allTopicsRes = await fetch('http://localhost:5000/api/topics');
+        const allTopicsRes = await fetch(`${API_URL}/api/topics`);
         const allTopicsData = await allTopicsRes.json();
         setTopics(allTopicsData);
 
@@ -34,7 +35,7 @@ export default function ModuleStudy() {
         let fetchedProgress = [];
         
         if (currentUserId) {
-          const progressRes = await fetch(`http://localhost:5000/api/progress/${currentUserId}`);
+          const progressRes = await fetch(`${API_URL}/api/progress/${currentUserId}`);
           if (progressRes.ok) {
             fetchedProgress = await progressRes.json();
             setUserProgress(fetchedProgress);
@@ -42,7 +43,7 @@ export default function ModuleStudy() {
         }
 
         setIsGenerating(true);
-        const studyRes = await fetch(`http://localhost:5000/api/topics/${topicId}`);
+        const studyRes = await fetch(`${API_URL}/api/topics/${topicId}`);
         const studyData = await studyRes.json();
         
         if (studyRes.ok) {
@@ -197,7 +198,7 @@ export default function ModuleStudy() {
             return;
         }
 
-        const response = await fetch('http://localhost:5000/api/progress/save', {
+        const response = await fetch('${API_URL}/api/progress/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -214,7 +215,7 @@ export default function ModuleStudy() {
         } else {
             console.log("✅ Progress saved successfully!");
             // Re-fetch progress to update the UI instantly
-            const progressRes = await fetch(`http://localhost:5000/api/progress/${currentUserId}`);
+            const progressRes = await fetch(`${API_URL}/api/progress/${currentUserId}`);
             if (progressRes.ok) setUserProgress(await progressRes.json());
         }
     } catch (error) {
