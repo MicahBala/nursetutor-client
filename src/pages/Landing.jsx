@@ -201,7 +201,11 @@ const Landing = () => {
                     <span className="text-white">Review mode for incorrect answers</span>
                   </li>
                 </ul>
-                <Button onClick={handleGoogleLogin} className="w-full py-4 border-2 font-bold hover:bg-blue-50 text-blue-700">
+                <Button 
+                  variant="outline" 
+                  onClick={handleGoogleLogin} 
+                  className="w-full py-4 bg-white border-2 border-white text-blue-700 font-bold hover:bg-blue-50 hover:border-blue-50 relative z-10 transition-all"
+                >
                   Get Exam Credits
                 </Button>
               </div>
