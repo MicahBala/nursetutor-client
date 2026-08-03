@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext'; // <-- Imported useAuth!
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -18,7 +19,7 @@ export default function AdminDashboard() {
     if (!currentUser) return;
     try {
       const token = await currentUser.getIdToken();
-      const res = await fetch('http://localhost:5000/api/topics', {
+      const res = await fetch(`${API_URL}/api/topics`, {
         headers: {
           'Authorization': `Bearer ${token}` // <-- Present token
         }

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { LockOpen, Shield, ArrowLeft } from 'lucide-react';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export default function Subscription() {
   const location = useLocation();
@@ -40,7 +41,7 @@ export default function Subscription() {
         const token = await currentUser.getIdToken();
         
         // Send the reference AND amount to backend for verification
-        const verifyRes = await fetch('http://localhost:5000/api/users/verify-payment', {
+        const verifyRes = await fetch(`${API_URL}/api/users/verify-payment`, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',

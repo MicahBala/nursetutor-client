@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { BookOpen, Shield, CreditCard, Lock, Unlock, Search, Tag, TrendingUp, Calendar, Award, CheckCircle2, Play } from 'lucide-react';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export default function Dashboard() {
   const { currentUser, dbUser, logout } = useAuth(); 
@@ -27,7 +28,7 @@ export default function Dashboard() {
       
       try {
         const token = await currentUser.getIdToken();
-        const response = await fetch('http://localhost:5000/api/topics', {
+        const response = await fetch(`${API_URL}/api/topics`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -59,7 +60,7 @@ export default function Dashboard() {
 
       try {
         const token = await currentUser.getIdToken();
-        const res = await fetch(`http://localhost:5000/api/progress/${currentUserId}`, {
+        const res = await fetch(`${API_URL}/api/progress/${currentUserId}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -89,7 +90,7 @@ export default function Dashboard() {
         setIsLoadingHistory(true);
         try {
           const token = await currentUser.getIdToken();
-          const res = await fetch(`http://localhost:5000/api/results/${currentUser.uid}`, {
+          const res = await fetch(`${API_URL}/api/results/${currentUser.uid}`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }

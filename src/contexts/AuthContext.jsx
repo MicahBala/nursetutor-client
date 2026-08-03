@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { auth, googleProvider } from '../config/firebase';
 import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 const AuthContext = createContext();
 
 export function useAuth() { 
@@ -20,7 +22,7 @@ export function AuthProvider({ children }) {
                 try {
                     const token = await user.getIdToken();
 
-                    const response = await fetch('http://localhost:5000/api/users/sync', {
+                    const response = await fetch(`${API_URL}/api/users/sync`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
