@@ -15,14 +15,24 @@ export default function MockExam() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // NEW: Pause and Idle tracking states
+  // Pause and Idle tracking states
   const [isPaused, setIsPaused] = useState(false);
   const lastActiveTime = useRef(Date.now());
 
   useEffect(() => {
     const fetchExam = async () => {
+      // 1. Prevent fetch until Firebase has confirmed the user is logged in
+      if (!currentUser) return; 
+
       try {
-        const res = await fetch(`${API_URL}/api/mock-exams/${examId}`);
+        // 2. Get the token and attach it
+        const token = await currentUser.getIdToken();
+        const res = await fetch(`${API_URL}/api/mock-exams/${examId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
         const data = await res.json();
         
         if (data.status === 'completed') {
@@ -39,9 +49,9 @@ export default function MockExam() {
       }
     };
     fetchExam();
-  }, [examId, navigate]);
+  }, [examId, navigate, currentUser]); // Added currentUser to dependencies
 
-  // NEW: Activity Tracker (Resets the idle timer when they move mouse or press keys)
+  // Activity Tracker (Resets the idle timer when they move mouse or press keys)
   useEffect(() => {
     const updateActivity = () => { lastActiveTime.current = Date.now(); };
     window.addEventListener('mousemove', updateActivity);
@@ -55,7 +65,7 @@ export default function MockExam() {
     };
   }, []);
 
-  // UPDATED: The Countdown Timer AND the Idle Checker
+  // The Countdown Timer AND the Idle Checker
   useEffect(() => {
     // If paused, loading, or submitting, stop counting down!
     if (!exam || isLoading || isSubmitting || isPaused) return;
@@ -87,10 +97,17 @@ export default function MockExam() {
   };
 
   const saveProgressSilently = async (newTime, questionId, letter) => {
+    if (!currentUser) return;
+
     try {
+      // 3. Attach token for auto-saving
+      const token = await currentUser.getIdToken();
       await fetch(`${API_URL}/api/mock-exams/${examId}/auto-save`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           questionId,
           selectedOption: letter,
@@ -109,7 +126,7 @@ export default function MockExam() {
     saveProgressSilently(timeRemaining, exam.userAnswers[currentIdx].questionId, letter);
   };
 
-  // UPDATED: Pause Logic - Stays on screen and blurs!
+  // Pause Logic - Stays on screen and blurs!
   const handlePause = async (isAuto = false) => {
     setIsPaused(true);
     // Force a final save to DB before pausing
@@ -125,7 +142,14 @@ export default function MockExam() {
     if (!window.confirm("Are you sure you want to submit your exam? You cannot change your answers after this.")) return;
     setIsSubmitting(true);
     try {
-      const res = await fetch(`${API_URL}/api/mock-exams/${examId}/submit`, { method: 'POST' });
+      // 4. Attach token for final submission
+      const token = await currentUser.getIdToken();
+      const res = await fetch(`${API_URL}/api/mock-exams/${examId}/submit`, { 
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (res.ok) navigate(`/exam-results/${examId}`);
     } catch (error) {
       setIsSubmitting(false);
@@ -140,10 +164,9 @@ export default function MockExam() {
   const isTimeLow = timeRemaining < 300;
 
   return (
-    // Note: Added relative positioning here for the absolute overlay to work!
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans relative">
       
-      {/* NEW: PAUSE OVERLAY */}
+      {/* PAUSE OVERLAY */}
       {isPaused && (
         <div className="absolute inset-0 z-50 bg-white/60 backdrop-blur-md flex flex-col items-center justify-center">
           <div className="bg-white p-8 rounded-3xl shadow-2xl border border-gray-200 text-center max-w-md mx-4 animate-in zoom-in-95 duration-200">

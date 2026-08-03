@@ -4,6 +4,7 @@ import { ArrowLeft, BookOpen, CheckCircle2, XCircle, Award, RotateCcw } from 'lu
 import { useAuth } from '../contexts/AuthContext';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export default function ModuleStudy() {
@@ -25,9 +26,18 @@ export default function ModuleStudy() {
 
   useEffect(() => {
     const fetchTopicData = async () => {
+      // Early return if not authenticated yet
+      if (!currentUser) return;
+
       try {
         setIsLoading(true);
-        const allTopicsRes = await fetch(`${API_URL}/api/topics`);
+        
+        // 1. Get Firebase Token
+        const token = await currentUser.getIdToken();
+        const authHeader = { 'Authorization': `Bearer ${token}` };
+
+        // 2. Fetch all topics (with auth)
+        const allTopicsRes = await fetch(`${API_URL}/api/topics`, { headers: authHeader });
         const allTopicsData = await allTopicsRes.json();
         setTopics(allTopicsData);
 
@@ -35,7 +45,8 @@ export default function ModuleStudy() {
         let fetchedProgress = [];
         
         if (currentUserId) {
-          const progressRes = await fetch(`${API_URL}/api/progress/${currentUserId}`);
+          // 3. Fetch user progress (with auth)
+          const progressRes = await fetch(`${API_URL}/api/progress/${currentUserId}`, { headers: authHeader });
           if (progressRes.ok) {
             fetchedProgress = await progressRes.json();
             setUserProgress(fetchedProgress);
@@ -43,7 +54,9 @@ export default function ModuleStudy() {
         }
 
         setIsGenerating(true);
-        const studyRes = await fetch(`${API_URL}/api/topics/${topicId}`);
+        
+        // 4. Fetch specific study topic content (with auth)
+        const studyRes = await fetch(`${API_URL}/api/topics/${topicId}`, { headers: authHeader });
         const studyData = await studyRes.json();
         
         if (studyRes.ok) {
@@ -83,7 +96,7 @@ export default function ModuleStudy() {
 
         } else {
           console.error("Backend returned an error:", studyData);
-          alert("Failed to generate AI content. Check your backend terminal for details!");
+          alert("Failed to load study content. See console for details.");
         }
       } catch (error) {
         console.error("Error fetching study material:", error);
@@ -96,7 +109,7 @@ export default function ModuleStudy() {
     fetchTopicData();
   }, [topicId, currentUser, dbUser]);
 
-  // NEW: Function to clear answers and retake the quiz
+  // Function to clear answers and retake the quiz
   const handleRetakeQuiz = () => {
     setAnsweredQuestions({});
     setScore(null);
@@ -192,15 +205,21 @@ export default function ModuleStudy() {
     try {
         const currentUserId = currentUser?.uid || dbUser?.firebaseUid || dbUser?._id || dbUser?.id;
 
-        if (!currentUserId) {
+        if (!currentUserId || !currentUser) {
             console.error("No logged-in user found. Cannot save progress.");
             setIsSaving(false);
             return;
         }
 
-        const response = await fetch('${API_URL}/api/progress/save', {
+        const token = await currentUser.getIdToken();
+
+        // 5. Save progress (with auth & fixed backticks)
+        const response = await fetch(`${API_URL}/api/progress/save`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
             body: JSON.stringify({
                 userId: currentUserId,
                 topicId: activeTopic.topicId,
@@ -214,8 +233,11 @@ export default function ModuleStudy() {
             console.error("❌ Failed to save study progress to the database.");
         } else {
             console.log("✅ Progress saved successfully!");
-            // Re-fetch progress to update the UI instantly
-            const progressRes = await fetch(`${API_URL}/api/progress/${currentUserId}`);
+            
+            // 6. Re-fetch progress to update the UI instantly (with auth)
+            const progressRes = await fetch(`${API_URL}/api/progress/${currentUserId}`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
             if (progressRes.ok) setUserProgress(await progressRes.json());
         }
     } catch (error) {
@@ -286,9 +308,8 @@ export default function ModuleStudy() {
           {isGenerating ? (
             <div className="flex flex-col items-center justify-center h-64 text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Generating Study Guide...</h3>
-              <p className="text-gray-500">Compiling NMCN guidelines and clinical scenarios.</p>
-              <p className="text-xs text-gray-400 mt-2">This usually takes about 5 to 8 seconds.</p>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Loading Study Guide...</h3>
+              <p className="text-gray-500">Retrieving comprehension materials.</p>
             </div>
           ) : (
             <div className="animate-in fade-in duration-300">
@@ -424,7 +445,6 @@ export default function ModuleStudy() {
                             Return to Dashboard
                           </button>
                           
-                          {/* NEW: Retake Quiz Button */}
                           <button
                             onClick={handleRetakeQuiz}
                             className="w-full sm:w-auto flex items-center justify-center gap-2 bg-white border-2 border-blue-600 text-blue-600 px-8 py-3 rounded-lg font-bold hover:bg-blue-50 transition-colors"

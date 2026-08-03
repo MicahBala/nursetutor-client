@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { 
   CheckCircle2, XCircle, AlertCircle, BarChart3, 
   BookOpen, ArrowLeft, BrainCircuit, Target, Clock
 } from 'lucide-react';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 export default function ExamResults() {
   const { examId } = useParams();
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
   
   const [exam, setExam] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -15,8 +19,19 @@ export default function ExamResults() {
 
   useEffect(() => {
     const fetchResults = async () => {
+      if (!currentUser) return; // Wait for authentication
+
       try {
-        const res = await fetch(`http://localhost:5000/api/mock-exams/${examId}`);
+        // Get the Firebase token
+        const token = await currentUser.getIdToken();
+        
+        // Fetch results using dynamic URL and auth header
+        const res = await fetch(`${API_URL}/api/mock-exams/${examId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
         const data = await res.json();
         setExam(data);
       } catch (error) {
@@ -26,7 +41,7 @@ export default function ExamResults() {
       }
     };
     fetchResults();
-  }, [examId]);
+  }, [examId, currentUser]);
 
   if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500 font-medium">Loading your results...</div>;

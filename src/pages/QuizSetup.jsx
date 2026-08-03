@@ -14,16 +14,24 @@ export default function QuizSetup() {
   const [isStarting, setIsStarting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   
-  // NEW: State for active exam
+  // State for active exam
   const [activeExam, setActiveExam] = useState(null);
   const currentUserId = currentUser?.uid || dbUser?.firebaseUid || dbUser?._id || dbUser?.id;
 
   useEffect(() => {
     const fetchInitialData = async () => {
+      if (!currentUser) return; // Wait for authentication
+
       try {
-        // 1. Check if user has an active exam FIRST
+        // 1. Get token
+        const token = await currentUser.getIdToken();
+        const authHeader = { 'Authorization': `Bearer ${token}` };
+
+        // 2. Check if user has an active exam FIRST
         if (currentUserId) {
-          const activeRes = await fetch(`${API_URL}/api/mock-exams/active/${currentUserId}`);
+          const activeRes = await fetch(`${API_URL}/api/mock-exams/active/${currentUserId}`, {
+            headers: authHeader
+          });
           const activeData = await activeRes.json();
           if (activeData.activeExam) {
             setActiveExam(activeData.activeExam);
@@ -32,8 +40,10 @@ export default function QuizSetup() {
           }
         }
 
-        // 2. If no active exam, fetch topics
-        const response = await fetch(`${API_URL}/api/topics`);
+        // 3. If no active exam, fetch topics
+        const response = await fetch(`${API_URL}/api/topics`, {
+          headers: authHeader
+        });
         const data = await response.json();
         setAvailableTopics(data);
       } catch (error) {
@@ -43,7 +53,7 @@ export default function QuizSetup() {
       }
     };
     fetchInitialData();
-  }, [currentUserId]);
+  }, [currentUserId, currentUser]);
 
   const toggleTopic = (topicId) => {
     setErrorMessage('');
@@ -72,9 +82,15 @@ export default function QuizSetup() {
     setErrorMessage('');
 
     try {
+      // 4. Get token for starting exam
+      const token = await currentUser.getIdToken();
+      
       const response = await fetch(`${API_URL}/api/mock-exams/start`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // Inject token here
+        },
         body: JSON.stringify({
           userId: currentUserId,
           selectedTopicIds: selectedTopics,
