@@ -3,20 +3,19 @@ import { useAuth } from '../contexts/AuthContext';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import Button from '../components/Button';
-import { BookOpen, Shield, Smartphone, Info, Users } from 'lucide-react';
+import { BookOpen, Shield, Smartphone, Info, Users, CheckCircle2, Clock } from 'lucide-react';
 
 const Landing = () => {
   const navigate = useNavigate();
-  const { currentUser, loginWithGoogle } = useAuth(); // <-- Pull from Context
+  const { currentUser, loginWithGoogle } = useAuth();
 
   if (currentUser) {
     return <Navigate to="/dashboard" replace />;
   }
 
-
   const handleGoogleLogin = async () => {
     try {
-      const result = await loginWithGoogle(); // <-- Call context function
+      const result = await loginWithGoogle();
       const user = result.user;
 
       console.log("Login Successful!");
@@ -24,11 +23,18 @@ const Landing = () => {
       console.log("Email:", user.email);
       console.log("Firebase UID:", user.uid);
 
-      // Redirect the user to the dashboard
       navigate('/dashboard');
     } catch (error) {
       console.error("Error during Google login:", error.message);
       alert("Failed to log in. Please try again.");
+    }
+  };
+
+  // Helper function to smooth scroll to the plans section
+  const scrollToPlans = () => {
+    const plansSection = document.getElementById('pricing-plans');
+    if (plansSection) {
+      plansSection.scrollIntoView({ behavior: 'smooth' });
     }
   };
 
@@ -40,16 +46,16 @@ const Landing = () => {
         {/* Hero Section */}
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 text-center">
           <h1 className="font-manrope text-4xl md:text-6xl font-bold text-on-surface tracking-tight mb-6 leading-tight">
-            NurseMaster: <br className="hidden md:block"/> Master Difficult Topics in 5 Minutes.
+            NurseTutorNG: <br className="hidden md:block"/> Master Difficult Concepts in 5 Minutes.
           </h1>
           <p className="font-inter text-on-surface-variant max-w-3xl mx-auto mb-10 text-lg md:text-xl leading-relaxed">
-            A whole, new approach to nursing education. We strip away the noise to help you master critical concepts with precision and speed.
+            A fresh approach to nursing education. We strip away the noise to help you understand critical clinical concepts with precision and speed.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4 mb-10">
             <Button variant="gradient" onClick={handleGoogleLogin} className="text-lg px-10 py-4">
               Continue with Google
             </Button>
-            <Button variant="secondary" onClick={() => navigate('/subscription')} className="text-lg px-8 py-4 bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant/20 hover:text-on-surface shadow-sm">
+            <Button variant="secondary" onClick={scrollToPlans} className="text-lg px-8 py-4 bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant/20 hover:text-on-surface shadow-sm">
               View Plans
             </Button>
           </div>
@@ -82,8 +88,8 @@ const Landing = () => {
                 <div className="w-12 h-12 bg-tertiary/10 rounded-xl flex items-center justify-center text-tertiary mb-6">
                   <Shield size={24} />
                 </div>
-                <h3 className="font-inter text-xl font-bold text-on-surface mb-3">Mock Exams</h3>
-                <p className="text-on-surface-variant text-base leading-relaxed">Simulate the real NMCN environment.</p>
+                <h3 className="font-inter text-xl font-bold text-on-surface mb-3">Comprehension</h3>
+                <p className="text-on-surface-variant text-base leading-relaxed">Test your grasp of core principles.</p>
               </div>
 
               <div className="bg-surface-container-lowest p-8 rounded-2xl ring-1 ring-outline-variant/10 shadow-[0_4px_24px_rgba(25,28,29,0.02)] hover:shadow-[0_12px_32px_rgba(25,28,29,0.06)] transition-all">
@@ -102,14 +108,14 @@ const Landing = () => {
           <div className="flex flex-col lg:flex-row gap-16 lg:items-center">
             <div className="flex-1">
               <h2 className="font-manrope text-3xl md:text-5xl font-bold text-on-surface mb-6 leading-tight tracking-tight">
-                Expert "Exam Secrets" included in every module.
+                Break down complex concepts into digestible insights.
               </h2>
               <p className="font-inter text-on-surface-variant text-lg leading-relaxed mb-8">
-                Our editors highlight the critical "Must-Know" tips that appear most frequently in past exam papers, saving you hours of aimless reading.
+                We focus on ensuring you truly understand the "why" and "how" of nursing practice. Test your comprehension of fundamental concepts to build confidence for your semester and professional exams.
               </p>
               <div className="bg-tertiary/5 border-l-[6px] border-tertiary p-6 md:p-8 rounded-r-xl">
                 <p className="italic text-on-surface-variant text-lg font-medium leading-relaxed">
-                  "Always prioritize the silent patient with a blocked airway over the screaming patient with a fractured arm."
+                  "Understanding the physiological mechanism of a disease process is far more powerful than memorizing a list of its symptoms."
                 </p>
               </div>
             </div>
@@ -126,9 +132,92 @@ const Landing = () => {
             </div>
           </div>
         </section>
+
+        {/* NEW: Simple Plans & Pricing Section */}
+        <section id="pricing-plans" className="bg-surface-container-low py-16 md:py-24 border-t border-surface-container">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-16">
+              <h2 className="font-manrope text-3xl md:text-4xl font-bold text-on-surface mb-4">Simple, Straightforward Pricing</h2>
+              <p className="text-on-surface-variant text-lg max-w-2xl mx-auto">
+                Pay only for what you need. Unlock specific topics or test your readiness with our mock exams.
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+              
+              {/* Single Topic Plan */}
+              <div className="bg-white rounded-3xl p-8 border border-outline-variant/20 shadow-md flex flex-col">
+                <div className="mb-6">
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">Topic Unlock</h3>
+                  <p className="text-gray-500">Perfect for targeted semester preparation.</p>
+                </div>
+                <div className="mb-6">
+                  <span className="text-4xl font-extrabold text-gray-900">₦500</span>
+                  <span className="text-gray-500 font-medium"> / topic</span>
+                </div>
+                <ul className="space-y-4 mb-8 flex-1">
+                  <li className="flex items-start gap-3">
+                    <Clock className="text-blue-600 shrink-0 mt-0.5" size={20} />
+                    <span className="text-gray-700">Full access to the module for <strong>30 Days</strong></span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <CheckCircle2 className="text-blue-600 shrink-0 mt-0.5" size={20} />
+                    <span className="text-gray-700">AI-generated clinical rationales</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <CheckCircle2 className="text-blue-600 shrink-0 mt-0.5" size={20} />
+                    <span className="text-gray-700">Comprehension quizzes to test retention</span>
+                  </li>
+                </ul>
+                <Button variant="outline" onClick={handleGoogleLogin} className="w-full py-4 border-2 font-bold hover:bg-blue-50 text-blue-700">
+                  Login to Unlock
+                </Button>
+              </div>
+
+              {/* Mock Exam Plan */}
+              <div className="bg-gradient-to-b from-blue-600 to-blue-800 rounded-3xl p-8 border border-blue-500 shadow-xl flex flex-col text-white relative overflow-hidden">
+                <div className="absolute top-0 right-0 bg-amber-400 text-amber-900 text-xs font-bold px-3 py-1 rounded-bl-lg uppercase tracking-wider">
+                  Popular
+                </div>
+                <div className="mb-6 relative z-10">
+                  <h3 className="text-2xl font-bold text-white mb-2">Exam Credits</h3>
+                  <p className="text-blue-100">Test your overall clinical readiness.</p>
+                </div>
+                <div className="mb-6 relative z-10">
+                  <span className="text-4xl font-extrabold text-white">₦1,500</span>
+                  <span className="text-blue-200 font-medium"> / bundle</span>
+                </div>
+                <ul className="space-y-4 mb-8 flex-1 relative z-10">
+                  <li className="flex items-start gap-3">
+                    <CheckCircle2 className="text-amber-400 shrink-0 mt-0.5" size={20} />
+                    <span className="text-white"><strong>3 Attempts</strong> at full mock exams</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <CheckCircle2 className="text-amber-400 shrink-0 mt-0.5" size={20} />
+                    <span className="text-white">Detailed performance breakdown by topic</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <CheckCircle2 className="text-amber-400 shrink-0 mt-0.5" size={20} />
+                    <span className="text-white">Review mode for incorrect answers</span>
+                  </li>
+                </ul>
+                <Button variant="primary" onClick={handleGoogleLogin} className="w-full py-4 bg-white text-blue-700 hover:bg-gray-50 font-bold relative z-10">
+                  Get Exam Credits
+                </Button>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
       </main>
 
-      <Footer />
+      {/* Footer replacing the old text */}
+      <footer className="bg-surface py-8 border-t border-outline-variant/20 text-center">
+        <p className="text-on-surface-variant text-sm font-medium">
+          NurseTutorNG | Enabling lasting comprehension and clinical confidence.
+        </p>
+      </footer>
     </div>
   );
 };
