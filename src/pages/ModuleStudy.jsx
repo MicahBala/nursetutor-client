@@ -106,14 +106,32 @@ export default function ModuleStudy() {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50">Loading content...</div>;
   }
 
-  const subscribedTopics = topics.filter(topic => {
+  // Helper function brought over from Dashboard to check ALL access types
+  const isTopicUnlocked = (topic) => {
     if (topic.isFree) return true;
-    const subscription = dbUser?.courseSubscriptions?.find(sub => sub.courseId === topic.topicId);
-    if (!subscription) return false;
-    const purchaseDate = new Date(subscription.purchasedAt);
-    const differenceInDays = (new Date().getTime() - purchaseDate.getTime()) / (1000 * 3600 * 24);
-    return differenceInDays <= 30; 
-  });
+    
+    const now = new Date();
+
+    // 1. Check Admin unlocked topics
+    const hasAdminAccess = dbUser?.unlockedTopics?.some(t => {
+      const matchesTopic = t.topicId === topic.topicId || t.topicId === topic._id;
+      return matchesTopic && new Date(t.expiresAt) > now;
+    });
+
+    if (hasAdminAccess) return true;
+
+    // 2. Check automated payment subscriptions
+    const subscriptions = dbUser?.courseSubscriptions?.filter(sub => sub.courseId === topic.topicId) || [];
+    if (subscriptions.length > 0) {
+      const latestSub = subscriptions[subscriptions.length - 1];
+      if (now < new Date(latestSub.expiresAt)) return true;
+    }
+
+    return false; 
+  };
+
+  // Filter the sidebar using the updated logic!
+  const subscribedTopics = topics.filter(topic => isTopicUnlocked(topic));
 
   const activeTopic = topics.find(t => t.topicId === topicId);
 

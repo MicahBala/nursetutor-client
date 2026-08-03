@@ -20,54 +20,89 @@ export default function Dashboard() {
   const [examHistory, setExamHistory] = useState([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
-  // Fetch all topics
+  // 1. Fetch all topics (with Auth Token & Array Guard)
   useEffect(() => {
     const fetchTopics = async () => {
+      if (!currentUser) return;
+      
       try {
-        const response = await fetch('http://localhost:5000/api/topics');
+        const token = await currentUser.getIdToken();
+        const response = await fetch('http://localhost:5000/api/topics', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         const data = await response.json();
-        setTopics(data);
+
+        if (response.ok && Array.isArray(data)) {
+          setTopics(data);
+        } else {
+          console.error("Failed to load topics array:", data);
+          setTopics([]); // Fallback to empty array to prevent filter crashes
+        }
       } catch (error) {
         console.error("Error fetching topics:", error);
+        setTopics([]);
       } finally {
         setIsLoadingTopics(false);
       }
     };
-    fetchTopics();
-  }, []);
 
-  // Fetch topic study progress when currentUser loads
+    fetchTopics();
+  }, [currentUser]);
+
+  // 2. Fetch topic study progress (with Auth Token & Array Guard)
   useEffect(() => {
     const fetchProgress = async () => {
       const currentUserId = currentUser?.uid || dbUser?.firebaseUid;
-      if (!currentUserId) return;
+      if (!currentUserId || !currentUser) return;
 
       try {
-        const res = await fetch(`http://localhost:5000/api/progress/${currentUserId}`);
+        const token = await currentUser.getIdToken();
+        const res = await fetch(`http://localhost:5000/api/progress/${currentUserId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
         if (res.ok) {
           const data = await res.json();
-          setUserProgress(data);
+          if (Array.isArray(data)) {
+            setUserProgress(data);
+          } else {
+            setUserProgress([]);
+          }
         }
       } catch (error) {
         console.error("Failed to fetch user progress:", error);
+        setUserProgress([]);
       }
     };
     
     fetchProgress();
   }, [currentUser, dbUser]);
 
-  // Fetch exam history when user switches to 'progress' tab
+  // 3. Fetch exam history when user switches to 'progress' tab (with Auth Token & Array Guard)
   useEffect(() => {
     if (activeTab === 'progress' && currentUser) {
       const fetchHistory = async () => {
         setIsLoadingHistory(true);
         try {
-          const res = await fetch(`http://localhost:5000/api/results/${currentUser.uid}`);
+          const token = await currentUser.getIdToken();
+          const res = await fetch(`http://localhost:5000/api/results/${currentUser.uid}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
           const data = await res.json();
-          // Sort exams to show the most recent ones first
-          setExamHistory(data.sort((a, b) => new Date(b.completedAt || b.createdAt) - new Date(a.completedAt || a.createdAt)));
+          if (res.ok && Array.isArray(data)) {
+            setExamHistory(data.sort((a, b) => new Date(b.completedAt || b.createdAt) - new Date(a.completedAt || a.createdAt)));
+          } else {
+             setExamHistory([]);
+          }
         } catch (error) {
           console.error("Failed to fetch exam history", error);
+          setExamHistory([]);
         } finally {
           setIsLoadingHistory(false);
         }
@@ -89,16 +124,28 @@ export default function Dashboard() {
 
   // Helper function to check if user owns a topic AND it hasn't expired
   const isTopicUnlocked = (topic) => {
+    // 1. Is it a universally free topic?
     if (topic.isFree) return true;
     
-    const subscriptions = dbUser.courseSubscriptions?.filter(sub => sub.courseId === topic.topicId) || [];
-    if (subscriptions.length === 0) return false;
-
-    const latestSub = subscriptions[subscriptions.length - 1];
     const now = new Date();
-    const expiry = new Date(latestSub.expiresAt);
 
-    return now < expiry; 
+    // 2. Check the new Admin-provisioned unlockedTopics array (Marketing/Free Access)
+    const hasAdminAccess = dbUser?.unlockedTopics?.some(t => {
+      // Allow matching against either custom topicId or standard MongoDB _id
+      const matchesTopic = t.topicId === topic.topicId || t.topicId === topic._id;
+      return matchesTopic && new Date(t.expiresAt) > now;
+    });
+
+    if (hasAdminAccess) return true;
+
+    // 3. Check the standard automated courseSubscriptions array (Paid Access)
+    const subscriptions = dbUser?.courseSubscriptions?.filter(sub => sub.courseId === topic.topicId) || [];
+    if (subscriptions.length > 0) {
+      const latestSub = subscriptions[subscriptions.length - 1];
+      if (now < new Date(latestSub.expiresAt)) return true;
+    }
+
+    return false; 
   };
 
   const filteredTopics = topics.filter(topic => {
