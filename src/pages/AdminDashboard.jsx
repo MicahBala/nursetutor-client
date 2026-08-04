@@ -40,7 +40,7 @@ export default function AdminDashboard() {
 
   const menuItems = [
     { id: 'overview', label: 'System Overview', icon: LayoutDashboard },
-    { id: 'users', label: 'User Roster & Access', icon: Users }, // Moved up for prominence
+    { id: 'users', label: 'User Roster & Access', icon: Users },
     { id: 'topics', label: 'Topic Manager', icon: FolderPlus },
     { id: 'content', label: 'AI Content Builder', icon: Database },
   ];
@@ -130,13 +130,14 @@ export default function AdminDashboard() {
 
 function TopicManager({ fetchTopics }) {
   const { currentUser } = useAuth();
+  const [newCourseName, setNewCourseName] = useState(''); // <-- Added Course Name state
   const [newTopicTitle, setNewTopicTitle] = useState('');
   const [newTopicTags, setNewTopicTags] = useState('');
   const [isAddingTopic, setIsAddingTopic] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
 
   const handleAddTopic = async () => {
-    if (!newTopicTitle || !currentUser) return;
+    if (!newTopicTitle || !newCourseName || !currentUser) return; // <-- Require Course Name
     setIsAddingTopic(true);
     setMessage({ text: '', type: '' });
 
@@ -148,13 +149,18 @@ function TopicManager({ fetchTopics }) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ title: newTopicTitle, tags: newTopicTags })
+        body: JSON.stringify({ 
+          title: newTopicTitle, 
+          courseName: newCourseName, // <-- Send to backend
+          tags: newTopicTags 
+        })
       });
       const data = await response.json();
 
       if (response.ok) {
         setMessage({ text: data.message, type: 'success' });
         setNewTopicTitle('');
+        setNewCourseName(''); // <-- Reset
         setNewTopicTags('');
         fetchTopics(); 
         setTimeout(() => setMessage({ text: '', type: '' }), 4000);
@@ -173,13 +179,26 @@ function TopicManager({ fetchTopics }) {
         <h2 className="text-xl font-bold text-white">Create New Topic</h2>
       </div>
       <div className="space-y-4 max-w-md">
+        
+        {/* NEW COURSE NAME INPUT */}
+        <div>
+          <label className="block text-sm font-medium text-gray-400 mb-1">Course Name</label>
+          <input 
+            type="text" 
+            value={newCourseName}
+            onChange={(e) => setNewCourseName(e.target.value)}
+            placeholder="e.g. Complicated Midwifery"
+            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500"
+          />
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-400 mb-1">Topic Title</label>
           <input 
             type="text" 
             value={newTopicTitle}
             onChange={(e) => setNewTopicTitle(e.target.value)}
-            placeholder="e.g. Pediatric Emergencies"
+            placeholder="e.g. Postpartum Haemorrhage"
             className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500"
           />
         </div>
@@ -195,7 +214,7 @@ function TopicManager({ fetchTopics }) {
         </div>
         <button
           onClick={handleAddTopic}
-          disabled={isAddingTopic || !newTopicTitle}
+          disabled={isAddingTopic || !newTopicTitle || !newCourseName} // <-- Must have course name
           className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
         >
           {isAddingTopic ? <Loader2 size={20} className="animate-spin" /> : 'Create Topic'}
