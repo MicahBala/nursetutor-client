@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { 
   Database, Zap, PlusCircle, Loader2, ShieldAlert, 
-  FolderPlus, LayoutDashboard, Users, Unlock, FileText, Search
+  FolderPlus, LayoutDashboard, Users, Unlock, FileText, Search, BookOpen
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -41,6 +41,7 @@ export default function AdminDashboard() {
   const menuItems = [
     { id: 'overview', label: 'System Overview', icon: LayoutDashboard },
     { id: 'users', label: 'User Roster & Access', icon: Users },
+    { id: 'bank', label: 'Exam Bank Overview', icon: BookOpen }, // <-- NEW MENU ITEM
     { id: 'topics', label: 'Topic Manager', icon: FolderPlus },
     { id: 'content', label: 'AI Content Builder', icon: Database },
   ];
@@ -53,6 +54,8 @@ export default function AdminDashboard() {
         return <ContentManager topics={topics} />;
       case 'users':
         return <UserManager topics={topics} />;
+      case 'bank': // <-- NEW ROUTE
+        return <ExamBankManager topics={topics} />;
       case 'overview':
       default:
         return (
@@ -123,21 +126,110 @@ export default function AdminDashboard() {
   );
 }
 
+// ==========================================
+// SUB-COMPONENTS
+// ==========================================
 
-// ==========================================
-// SUB-COMPONENTS (Organized by feature)
-// ==========================================
+// --- NEW COMPONENT: EXAM BANK MANAGER ---
+function ExamBankManager({ topics }) {
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Calculate total questions across all topics
+  const totalQuestions = topics.reduce((sum, topic) => sum + (topic.questionCount || 0), 0);
+
+  const filteredTopics = topics.filter(t => 
+    t.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    t.courseName?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  return (
+    <div className="space-y-6">
+      
+      <div className="bg-gray-800 rounded-2xl border border-gray-700 p-6 shadow-sm flex items-center justify-between">
+        <div>
+          <p className="text-gray-400 text-sm font-medium mb-1">Total Questions in Bank</p>
+          <p className="text-3xl font-bold text-blue-400">{totalQuestions}</p>
+        </div>
+        <BookOpen className="text-blue-500/50" size={48} />
+      </div>
+
+      <div className="bg-gray-800 rounded-2xl border border-gray-700 shadow-xl overflow-hidden">
+        <div className="p-4 border-b border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <h2 className="text-lg font-bold text-white">Topic Coverage</h2>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+            <input 
+              type="text" 
+              placeholder="Search topics or courses..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-gray-900 border border-gray-700 text-sm rounded-lg pl-9 pr-4 py-2 text-white focus:outline-none focus:border-blue-500 w-full sm:w-64"
+            />
+          </div>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm text-gray-400">
+            <thead className="bg-gray-900/50 text-xs uppercase font-semibold text-gray-500">
+              <tr>
+                <th className="px-6 py-4">Course Category</th>
+                <th className="px-6 py-4">Topic Title</th>
+                <th className="px-6 py-4">Available Questions</th>
+                <th className="px-6 py-4">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-700">
+              {filteredTopics.length === 0 ? (
+                <tr><td colSpan="4" className="text-center py-8">No topics found.</td></tr>
+              ) : (
+                filteredTopics.map(topic => {
+                  const qCount = topic.questionCount || 0;
+                  const isHealthy = qCount >= 20; // Example threshold for a "healthy" topic
+
+                  return (
+                    <tr key={topic.topicId} className="hover:bg-gray-750 transition-colors">
+                      <td className="px-6 py-4">
+                        <span className="bg-gray-700 text-gray-300 text-xs px-2 py-1 rounded">
+                          {topic.courseName || 'Uncategorized'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-white font-medium">{topic.title}</td>
+                      <td className="px-6 py-4 text-lg font-bold text-white">{qCount}</td>
+                      <td className="px-6 py-4">
+                        {isHealthy ? (
+                          <span className="text-green-400 text-xs font-bold uppercase tracking-wider flex items-center gap-1">
+                            <span className="w-2 h-2 rounded-full bg-green-500"></span> Ready
+                          </span>
+                        ) : (
+                          <span className="text-amber-400 text-xs font-bold uppercase tracking-wider flex items-center gap-1">
+                            <span className="w-2 h-2 rounded-full bg-amber-500"></span> Needs Content
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- EXISTING COMPONENTS REMAIN UNCHANGED ---
 
 function TopicManager({ fetchTopics }) {
   const { currentUser } = useAuth();
-  const [newCourseName, setNewCourseName] = useState(''); // <-- Added Course Name state
+  const [newCourseName, setNewCourseName] = useState('');
   const [newTopicTitle, setNewTopicTitle] = useState('');
   const [newTopicTags, setNewTopicTags] = useState('');
   const [isAddingTopic, setIsAddingTopic] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
 
   const handleAddTopic = async () => {
-    if (!newTopicTitle || !newCourseName || !currentUser) return; // <-- Require Course Name
+    if (!newTopicTitle || !newCourseName || !currentUser) return;
     setIsAddingTopic(true);
     setMessage({ text: '', type: '' });
 
@@ -151,7 +243,7 @@ function TopicManager({ fetchTopics }) {
         },
         body: JSON.stringify({ 
           title: newTopicTitle, 
-          courseName: newCourseName, // <-- Send to backend
+          courseName: newCourseName,
           tags: newTopicTags 
         })
       });
@@ -160,7 +252,7 @@ function TopicManager({ fetchTopics }) {
       if (response.ok) {
         setMessage({ text: data.message, type: 'success' });
         setNewTopicTitle('');
-        setNewCourseName(''); // <-- Reset
+        setNewCourseName('');
         setNewTopicTags('');
         fetchTopics(); 
         setTimeout(() => setMessage({ text: '', type: '' }), 4000);
@@ -179,8 +271,6 @@ function TopicManager({ fetchTopics }) {
         <h2 className="text-xl font-bold text-white">Create New Topic</h2>
       </div>
       <div className="space-y-4 max-w-md">
-        
-        {/* NEW COURSE NAME INPUT */}
         <div>
           <label className="block text-sm font-medium text-gray-400 mb-1">Course Name</label>
           <input 
@@ -191,7 +281,6 @@ function TopicManager({ fetchTopics }) {
             className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500"
           />
         </div>
-
         <div>
           <label className="block text-sm font-medium text-gray-400 mb-1">Topic Title</label>
           <input 
@@ -214,7 +303,7 @@ function TopicManager({ fetchTopics }) {
         </div>
         <button
           onClick={handleAddTopic}
-          disabled={isAddingTopic || !newTopicTitle || !newCourseName} // <-- Must have course name
+          disabled={isAddingTopic || !newTopicTitle || !newCourseName}
           className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
         >
           {isAddingTopic ? <Loader2 size={20} className="animate-spin" /> : 'Create Topic'}
@@ -354,7 +443,6 @@ function UserManager({ topics }) {
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Action States
   const [email, setEmail] = useState('');
   const [credits, setCredits] = useState(10);
   const [isToppingUp, setIsToppingUp] = useState(false);
@@ -364,7 +452,6 @@ function UserManager({ topics }) {
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
 
-  // Fetch Users on Load
   useEffect(() => {
     const fetchUsers = async () => {
       if (!currentUser) return;
@@ -385,16 +472,13 @@ function UserManager({ topics }) {
     };
     fetchUsers();
     
-    // Auto-select first topic for the form
     if (topics.length > 0 && !selectedTopicId) setSelectedTopicId(topics[0].topicId);
   }, [currentUser, topics, selectedTopicId]);
 
-  // Aggregate Stats
   const totalUsers = users.length;
   const totalCredits = users.reduce((sum, u) => sum + (u.mockExamCredits || 0), 0);
   const totalUnlocks = users.reduce((sum, u) => sum + (u.activeTopicsCount || 0), 0);
 
-  // Filter users based on search
   const filteredUsers = users.filter(u => 
     u.email.toLowerCase().includes(searchQuery.toLowerCase()) || 
     u.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -419,7 +503,6 @@ function UserManager({ topics }) {
       if (response.ok) {
         setMessage({ text: data.message, type: 'success' });
         setCredits(10);
-        // Optimistically update the UI table
         setUsers(users.map(u => u.email === email ? { ...u, mockExamCredits: u.mockExamCredits + credits } : u));
         setTimeout(() => setMessage({ text: '', type: '' }), 4000);
       } else throw new Error(data.error);
@@ -448,7 +531,6 @@ function UserManager({ topics }) {
       const data = await response.json();
       if (response.ok) {
         setMessage({ text: data.message, type: 'success' });
-        // Optimistically update UI
         setUsers(users.map(u => u.email === email ? { ...u, activeTopicsCount: u.activeTopicsCount + 1 } : u));
         setTimeout(() => setMessage({ text: '', type: '' }), 4000);
       } else throw new Error(data.error);
@@ -462,7 +544,6 @@ function UserManager({ topics }) {
   return (
     <div className="space-y-6">
       
-      {/* Top Level Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-gray-800 rounded-2xl border border-gray-700 p-6 shadow-sm">
           <p className="text-gray-400 text-sm font-medium mb-1">Total Users</p>
@@ -480,7 +561,6 @@ function UserManager({ topics }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         
-        {/* Left Col: User Table */}
         <div className="lg:col-span-2 bg-gray-800 rounded-2xl border border-gray-700 shadow-xl overflow-hidden">
           <div className="p-4 border-b border-gray-700 flex items-center justify-between">
             <h2 className="text-lg font-bold text-white">User Roster</h2>
@@ -536,7 +616,6 @@ function UserManager({ topics }) {
           </div>
         </div>
 
-        {/* Right Col: Quick Actions */}
         <div className="space-y-6">
           <div className="bg-gray-800 rounded-2xl border border-gray-700 p-5 shadow-xl">
             <h3 className="font-bold text-white mb-4 border-b border-gray-700 pb-2">Target Actions</h3>
@@ -553,7 +632,6 @@ function UserManager({ topics }) {
               </div>
             )}
 
-            {/* Grant Credits */}
             <div className="bg-gray-900/50 p-4 rounded-xl border border-gray-700 mb-4">
               <label className="block text-xs font-medium text-gray-400 mb-1">Add Exam Credits</label>
               <div className="flex gap-2">
@@ -574,7 +652,6 @@ function UserManager({ topics }) {
               </div>
             </div>
 
-            {/* Grant Topic Access */}
             <div className="bg-gray-900/50 p-4 rounded-xl border border-gray-700">
               <label className="block text-xs font-medium text-gray-400 mb-1">Unlock Topic</label>
               <select 
