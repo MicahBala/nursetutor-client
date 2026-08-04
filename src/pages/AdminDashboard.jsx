@@ -145,7 +145,7 @@ function TopicManager({ fetchTopics }) {
 
     try {
       const token = await currentUser.getIdToken();
-      const response = await fetch('http://localhost:5000/api/admin/topics', {
+      const response = await fetch(`${API_URL}/api/admin/topics`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -244,7 +244,7 @@ function ContentManager({ topics }) {
 
     try {
       const token = await currentUser.getIdToken();
-      const response = await fetch(`http://localhost:5000${endpoint}`, {
+      const response = await fetch(`${API_URL}${endpoint}`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -359,7 +359,7 @@ function UserManager({ topics }) {
 
     try {
       const token = await currentUser.getIdToken();
-      const response = await fetch('http://localhost:5000/api/admin/top-up', {
+      const response = await fetch(`${API_URL}/api/admin/top-up`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -387,7 +387,7 @@ function UserManager({ topics }) {
 
     try {
       const token = await currentUser.getIdToken();
-      const response = await fetch('http://localhost:5000/api/admin/unlock-topic', {
+      const response = await fetch(`${API_URL}/api/admin/unlock-topic`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
