@@ -131,16 +131,21 @@ export default function AdminDashboard() {
 // ==========================================
 
 // --- NEW COMPONENT: EXAM BANK MANAGER ---
+// --- NEW COMPONENT: EXAM BANK MANAGER ---
 function ExamBankManager({ topics }) {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Calculate total questions across all topics
   const totalQuestions = topics.reduce((sum, topic) => sum + (topic.questionCount || 0), 0);
 
-  const filteredTopics = topics.filter(t => 
-    t.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    t.courseName?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter topics. Check both title and topicName to be safe.
+  const filteredTopics = topics.filter(t => {
+    const searchString = searchQuery.toLowerCase();
+    const title = (t.title || t.topicName || '').toLowerCase();
+    const course = (t.courseName || '').toLowerCase();
+    
+    return title.includes(searchString) || course.includes(searchString);
+  });
 
   return (
     <div className="space-y-6">
@@ -184,7 +189,10 @@ function ExamBankManager({ topics }) {
               ) : (
                 filteredTopics.map(topic => {
                   const qCount = topic.questionCount || 0;
-                  const isHealthy = qCount >= 20; // Example threshold for a "healthy" topic
+                  const isHealthy = qCount >= 20; // Healthy if 20 or more questions
+                  
+                  // Use topic.topicName as a fallback if topic.title is empty
+                  const displayTitle = topic.title || topic.topicName || 'Unknown Topic';
 
                   return (
                     <tr key={topic.topicId} className="hover:bg-gray-750 transition-colors">
@@ -193,7 +201,9 @@ function ExamBankManager({ topics }) {
                           {topic.courseName || 'Uncategorized'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-white font-medium">{topic.title}</td>
+                      <td className="px-6 py-4 text-white font-medium">
+                        {displayTitle} {/* <-- This guarantees the title shows up */}
+                      </td>
                       <td className="px-6 py-4 text-lg font-bold text-white">{qCount}</td>
                       <td className="px-6 py-4">
                         {isHealthy ? (
